@@ -1,10 +1,7 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { UserGender } from "../user.types";
 
-enum UserGender {
-  MAN = 'man',
-  WOMAN = 'woman',
-  NOT_DETERMINED = 'not_determined'
-}
+
 
 @Entity({ name: 'users' })
 export class User {
@@ -14,7 +11,7 @@ export class User {
   @Column()
   firstName: string;
 
-  @Column()
+  @Column({ nullable: true })
   lastName?: string;
 
   @Column()
@@ -23,16 +20,16 @@ export class User {
   @Column()
   password: string;
 
-  @Column()
+  @Column({ nullable: true })
   phone?: string;
 
-  @Column()
+  @Column({ type: 'date', nullable: true })
   dateOfBirth?: Date;
 
-  @Column({ type: 'enum', enum: UserGender, default: UserGender.NOT_DETERMINED })
+  @Column({ type: 'enum', enum: UserGender, default: UserGender.NOT_DETERMINED, nullable: true })
   gender?: UserGender;
 
-  @Column()
+  @Column({ nullable: true })
   country?: string;
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

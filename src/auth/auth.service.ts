@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 import { Repository } from 'typeorm';
@@ -6,7 +6,7 @@ import { User } from 'src/users/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { compare } from 'bcrypt';
+import { compare, hash } from 'bcrypt';
 import { SignInDto } from './dto/sign-in.dto';
 
 @Injectable()
@@ -20,8 +20,25 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService) { }
 
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  async create(createAuthDto: CreateAuthDto) {
+    const { email, pass, firstName, lastName, phone, dateOfBirth, gender, country } = createAuthDto;
+    const user = await this.userRepository.createQueryBuilder('users').where({ email }).getOne();
+
+    if (user) {
+      throw new BadRequestException('User already exists');
+    }
+
+    const hashPass = await hash(pass, this.SALT_ROUNDS);
+    const newUser = { firstName, lastName, email, phone, dateOfBirth, gender, country, password: hashPass };
+
+    const savedNewUser = await this.userRepository.save(newUser);
+
+    const payload = { id: savedNewUser.uuid };
+    const token = await this.jwtService.signAsync(payload, {
+      secret: this.JWT_SECRET,
+    })
+    const { password, ...result } = savedNewUser;
+    return { result, token };
   }
 
   async signIn(signInDto: SignInDto): Promise<any> {
@@ -39,11 +56,27 @@ export class AuthService {
     }
 
     const payload = { id: user.uuid };
-    const token = this.jwtService.signAsync(payload, {
+    const token = await this.jwtService.signAsync(payload, {
       secret: this.JWT_SECRET,
     })
     const { password, ...result } = user;
     return { result, token };
+  }
+
+  async logout(request: Request) {
+    // let token = request['user'];
+
+    // if (!token) {
+    //   throw new UnauthorizedException();
+    // }
+    // const decodedToken = this.jwtService.decode(token) as { id: string };
+    // if (!decodedToken) {
+    //   throw new UnauthorizedException();
+    // }
+    // const userId = decodedToken.id;
+    const token = '';
+
+    return { message: 'Logout successful', token };
   }
 
   findOne(id: number) {
@@ -58,23 +91,5 @@ export class AuthService {
     return `This action removes a #${id} auth`;
   }
 
-  async verifyPassword(id: string) {
-    const payload = { id };
-
-    try {
-      const token = await this.jwtService.signAsync(payload, {
-        secret: this.JWT_SECRET,
-      });
-
-      return {
-        message: 'ACCEPTED',
-        token,
-      };
-    } catch (err) {
-      throw new InternalServerErrorException(
-        `Failed to generate token: ${err}`,
-      );
-    }
-  }
 
 }
